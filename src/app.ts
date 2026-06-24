@@ -10,7 +10,7 @@ import { inquiryRoutes } from "./routes/inquiry.routes.js";
 
 export function createApp(config: AppConfig) {
   const app = express();
-  const { catalogController, inquiryController } = buildDependencies();
+  const { catalogController, inquiryController } = buildDependencies(config);
 
   app.use(helmet());
   app.use(cors({ origin: config.webOrigin }));

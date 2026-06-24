@@ -6,6 +6,14 @@ import {
   updateCatalogItemSchema,
 } from "../middlewares/validation-schemas.js";
 
+function requireRouteParam(value: string | undefined, name: string): string {
+  if (!value) {
+    throw new Error(`Missing route param: ${name}`);
+  }
+
+  return value;
+}
+
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
@@ -22,7 +30,8 @@ export class CatalogController {
   createCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input = createCatalogItemSchema.parse(request.body);
-      const item = await this.catalogService.createCatalogItem(request.params.vendorId, input);
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const item = await this.catalogService.createCatalogItem(vendorId, input);
       response.status(201).json({ data: item });
     } catch (error) {
       next(error);
@@ -32,7 +41,9 @@ export class CatalogController {
   updateCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input = updateCatalogItemSchema.parse(request.body);
-      const item = await this.catalogService.updateCatalogItem(request.params.vendorId, request.params.itemId, input);
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const itemId = requireRouteParam(request.params.itemId, "itemId");
+      const item = await this.catalogService.updateCatalogItem(vendorId, itemId, input);
       response.json({ data: item });
     } catch (error) {
       next(error);
@@ -41,7 +52,9 @@ export class CatalogController {
 
   deleteCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.catalogService.deleteCatalogItem(request.params.vendorId, request.params.itemId);
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const itemId = requireRouteParam(request.params.itemId, "itemId");
+      await this.catalogService.deleteCatalogItem(vendorId, itemId);
       response.status(204).send();
     } catch (error) {
       next(error);
