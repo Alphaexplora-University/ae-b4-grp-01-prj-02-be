@@ -2,10 +2,12 @@ import type { CatalogItem, Inquiry, Vendor } from "../types/entities.js";
 import type {
   CatalogItemFilters,
   CatalogItemRepository,
+  CreateVendorInput,
   InquiryRepository,
+  VendorAuthRecord,
   VendorRepository,
 } from "./repository.types.js";
-import type { Sql } from "postgres";
+import type { Pool, QueryResult, QueryResultRow } from "pg";
 
 interface VendorRow {
   id: string;
@@ -15,6 +17,7 @@ interface VendorRow {
   location: string;
   contact_email: string;
   contact_phone: string | null;
+  password_hash?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,50 +98,77 @@ function mapInquiry(row: InquiryRow): Inquiry {
   };
 }
 
+function mapRows<T extends QueryResultRow>(result: QueryResult<T>): T[] {
+  return result.rows;
+}
+
 export class PostgresVendorRepository implements VendorRepository {
-  constructor(private readonly database: Sql) {}
+  constructor(private readonly database: Pool) {}
+
+  async findMany(): Promise<Vendor[]> {
+    const rows = mapRows(await this.database.query<VendorRow>(
+      `select *
+       from vendors
+       order by business_name asc`,
+    ));
+
+    return rows.map(mapVendor);
+  }
 
   async findById(id: string): Promise<Vendor | null> {
-    const rows = await this.database<VendorRow[]>`
-      select *
-      from vendors
-      where id = ${id}
-      limit 1
-    `;
+    const rows = mapRows(await this.database.query<VendorRow>(
+      `select *
+       from vendors
+       where id = $1
+       limit 1`,
+      [id],
+    ));
 
     return rows[0] ? mapVendor(rows[0]) : null;
   }
 
-  async findByOwnerUserId(ownerUserId: string): Promise<Vendor | null> {
-    const rows = await this.database<VendorRow[]>`
-      select *
-      from vendors
-      where owner_user_id = ${ownerUserId}
-      limit 1
-    `;
+  async findAuthByEmail(email: string): Promise<VendorAuthRecord | null> {
+    const rows = mapRows(await this.database.query<VendorRow>(
+      `select *
+       from vendors
+       where lower(contact_email) = lower($1)
+       limit 1`,
+      [email],
+    ));
 
-    return rows[0] ? mapVendor(rows[0]) : null;
+    const [row] = rows;
+    if (!row?.password_hash) {
+      return null;
+    }
+
+    return {
+      vendor: mapVendor(row),
+      passwordHash: row.password_hash,
+    };
   }
 
-  async create(input: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Promise<Vendor> {
-    const rows = await this.database<VendorRow[]>`
-      insert into vendors (
-        owner_user_id,
-        business_name,
-        description,
-        location,
-        contact_email,
-        contact_phone
-      ) values (
-        ${input.ownerUserId},
-        ${input.businessName},
-        ${input.description},
-        ${input.location},
-        ${input.contactEmail},
-        ${input.contactPhone ?? null}
-      )
-      returning *
-    `;
+  async create(input: CreateVendorInput): Promise<Vendor> {
+    const rows = mapRows(await this.database.query<VendorRow>(
+      `insert into vendors (
+         owner_user_id,
+         business_name,
+         description,
+         location,
+         contact_email,
+         contact_phone,
+         password_hash
+       ) values ($1, $2, $3, $4, $5, $6, $7)
+       returning *`,
+      [
+        input.ownerUserId,
+        input.businessName,
+        input.description,
+        input.location,
+        input.contactEmail,
+        input.contactPhone ?? null,
+        input.passwordHash ?? null,
+      ],
+    ));
 
     const [createdRow] = rows;
     if (!createdRow) {
@@ -152,34 +182,64 @@ export class PostgresVendorRepository implements VendorRepository {
     id: string,
     input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,
   ): Promise<Vendor | null> {
-    const rows = await this.database<VendorRow[]>`
-      update vendors
-      set
-        business_name = coalesce(${input.businessName ?? null}, business_name),
-        description = coalesce(${input.description ?? null}, description),
-        location = coalesce(${input.location ?? null}, location),
-        contact_email = coalesce(${input.contactEmail ?? null}, contact_email),
-        contact_phone = coalesce(${input.contactPhone ?? null}, contact_phone),
-        updated_at = now()
-      where id = ${id}
-      returning *
-    `;
+    const rows = mapRows(await this.database.query<VendorRow>(
+      `update vendors
+       set
+         business_name = coalesce($1, business_name),
+         description = coalesce($2, description),
+         location = coalesce($3, location),
+         contact_email = coalesce($4, contact_email),
+         contact_phone = coalesce($5, contact_phone),
+         updated_at = now()
+       where id = $6
+       returning *`,
+      [
+        input.businessName ?? null,
+        input.description ?? null,
+        input.location ?? null,
+        input.contactEmail ?? null,
+        input.contactPhone ?? null,
+        id,
+      ],
+    ));
 
     return rows[0] ? mapVendor(rows[0]) : null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const rows = mapRows(await this.database.query<{ id: string }>(
+      `delete from vendors
+       where id = $1
+       returning id`,
+      [id],
+    ));
+
+    return rows.length > 0;
   }
 }
 
 export class PostgresCatalogItemRepository implements CatalogItemRepository {
-  constructor(private readonly database: Sql) {}
+  constructor(private readonly database: Pool) {}
 
   async findMany(filters: CatalogItemFilters): Promise<CatalogItem[]> {
-    const rows = await this.database<CatalogItemRow[]>`
-      select *
-      from catalog_items
-      where ${filters.vendorId ? this.database`vendor_id = ${filters.vendorId}` : this.database`true`}
-        and ${filters.includeInactive ? this.database`true` : this.database`status = 'active'`}
-      order by name asc
-    `;
+    const values: unknown[] = [];
+    const where: string[] = [];
+
+    if (filters.vendorId) {
+      values.push(filters.vendorId);
+      where.push(`vendor_id = $${values.length}`);
+    }
+
+    if (!filters.includeInactive) {
+      values.push("active");
+      where.push(`status = $${values.length}`);
+    }
+
+    const query = `select *
+       from catalog_items
+       ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
+       order by name asc`;
+    const rows = mapRows(await this.database.query<CatalogItemRow>(query, values));
 
     return rows
       .map(mapCatalogItem)
@@ -197,39 +257,41 @@ export class PostgresCatalogItemRepository implements CatalogItemRepository {
   }
 
   async findById(id: string): Promise<CatalogItem | null> {
-    const rows = await this.database<CatalogItemRow[]>`
-      select *
-      from catalog_items
-      where id = ${id}
-      limit 1
-    `;
+    const rows = mapRows(await this.database.query<CatalogItemRow>(
+      `select *
+       from catalog_items
+       where id = $1
+       limit 1`,
+      [id],
+    ));
 
     return rows[0] ? mapCatalogItem(rows[0]) : null;
   }
 
   async create(input: Omit<CatalogItem, "id" | "createdAt" | "updatedAt">): Promise<CatalogItem> {
-    const rows = await this.database<CatalogItemRow[]>`
-      insert into catalog_items (
-        vendor_id,
-        name,
-        category,
-        description,
-        price_from,
-        location,
-        availability_tags,
-        status
-      ) values (
-        ${input.vendorId},
-        ${input.name},
-        ${input.category},
-        ${input.description},
-        ${input.priceFrom ?? null},
-        ${input.location},
-        ${this.database.array(input.availabilityTags)},
-        ${input.status}
-      )
-      returning *
-    `;
+    const rows = mapRows(await this.database.query<CatalogItemRow>(
+      `insert into catalog_items (
+         vendor_id,
+         name,
+         category,
+         description,
+         price_from,
+         location,
+         availability_tags,
+         status
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8)
+       returning *`,
+      [
+        input.vendorId,
+        input.name,
+        input.category,
+        input.description,
+        input.priceFrom ?? null,
+        input.location,
+        input.availabilityTags,
+        input.status,
+      ],
+    ));
 
     const [createdRow] = rows;
     if (!createdRow) {
@@ -241,72 +303,77 @@ export class PostgresCatalogItemRepository implements CatalogItemRepository {
 
   async update(
     id: string,
-    vendorId: string,
     input: Partial<Omit<CatalogItem, "id" | "vendorId" | "createdAt" | "updatedAt">>,
   ): Promise<CatalogItem | null> {
-    const existing = await this.findById(id);
-    if (!existing || existing.vendorId !== vendorId) {
-      return null;
-    }
-
-    const rows = await this.database<CatalogItemRow[]>`
-      update catalog_items
-      set
-        name = coalesce(${input.name ?? null}, name),
-        category = coalesce(${input.category ?? null}, category),
-        description = coalesce(${input.description ?? null}, description),
-        price_from = coalesce(${input.priceFrom ?? null}, price_from),
-        location = coalesce(${input.location ?? null}, location),
-        availability_tags = coalesce(${input.availabilityTags ? this.database.array(input.availabilityTags) : null}, availability_tags),
-        status = coalesce(${input.status ?? null}, status),
-        updated_at = now()
-      where id = ${id} and vendor_id = ${vendorId}
-      returning *
-    `;
+    const rows = mapRows(await this.database.query<CatalogItemRow>(
+      `update catalog_items
+       set
+         name = coalesce($1, name),
+         category = coalesce($2, category),
+         description = coalesce($3, description),
+         price_from = coalesce($4, price_from),
+         location = coalesce($5, location),
+         availability_tags = coalesce($6, availability_tags),
+         status = coalesce($7, status),
+         updated_at = now()
+       where id = $8
+       returning *`,
+      [
+        input.name ?? null,
+        input.category ?? null,
+        input.description ?? null,
+        input.priceFrom ?? null,
+        input.location ?? null,
+        input.availabilityTags ?? null,
+        input.status ?? null,
+        id,
+      ],
+    ));
 
     const [updatedRow] = rows;
     return updatedRow ? mapCatalogItem(updatedRow) : null;
   }
 
-  async delete(id: string, vendorId: string): Promise<boolean> {
-    const rows = await this.database<{ id: string }[]>`
-      delete from catalog_items
-      where id = ${id} and vendor_id = ${vendorId}
-      returning id
-    `;
+  async delete(id: string): Promise<boolean> {
+    const rows = mapRows(await this.database.query<{ id: string }>(
+      `delete from catalog_items
+       where id = $1
+       returning id`,
+      [id],
+    ));
 
     return rows.length > 0;
   }
 }
 
 export class PostgresInquiryRepository implements InquiryRepository {
-  constructor(private readonly database: Sql) {}
+  constructor(private readonly database: Pool) {}
 
   async create(input: Omit<Inquiry, "id" | "status" | "createdAt" | "updatedAt">): Promise<Inquiry> {
-    const rows = await this.database<InquiryRow[]>`
-      insert into inquiries (
-        vendor_id,
-        catalog_item_id,
-        customer_name,
-        customer_email,
-        customer_phone,
-        event_type,
-        event_date,
-        message,
-        status
-      ) values (
-        ${input.vendorId},
-        ${input.catalogItemId},
-        ${input.customerName},
-        ${input.customerEmail},
-        ${input.customerPhone ?? null},
-        ${input.eventType},
-        ${input.eventDate ?? null},
-        ${input.message},
-        'new'
-      )
-      returning *
-    `;
+    const rows = mapRows(await this.database.query<InquiryRow>(
+      `insert into inquiries (
+         vendor_id,
+         catalog_item_id,
+         customer_name,
+         customer_email,
+         customer_phone,
+         event_type,
+         event_date,
+         message,
+         status
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8, 'new')
+       returning *`,
+      [
+        input.vendorId,
+        input.catalogItemId,
+        input.customerName,
+        input.customerEmail,
+        input.customerPhone ?? null,
+        input.eventType,
+        input.eventDate ?? null,
+        input.message,
+      ],
+    ));
 
     const [createdRow] = rows;
     if (!createdRow) {
@@ -316,28 +383,84 @@ export class PostgresInquiryRepository implements InquiryRepository {
     return mapInquiry(createdRow);
   }
 
-  async findByVendorId(vendorId: string, status?: Inquiry["status"]): Promise<Inquiry[]> {
-    const rows = await this.database<InquiryRow[]>`
-      select *
-      from inquiries
-      where vendor_id = ${vendorId}
-        and ${status ? this.database`status = ${status}` : this.database`true`}
-      order by created_at desc
-    `;
+  async findMany(filters?: { vendorId?: string; status?: Inquiry["status"] }): Promise<Inquiry[]> {
+    const values: unknown[] = [];
+    const where: string[] = [];
+
+    if (filters?.vendorId) {
+      values.push(filters.vendorId);
+      where.push(`vendor_id = $${values.length}`);
+    }
+
+    if (filters?.status) {
+      values.push(filters.status);
+      where.push(`status = $${values.length}`);
+    }
+
+    let query = `select *
+      from inquiries`;
+    if (where.length > 0) {
+      query += ` where ${where.join(" and ")}`;
+    }
+
+    query += ` order by created_at desc`;
+    const rows = mapRows(await this.database.query<InquiryRow>(query, values));
 
     return rows.map(mapInquiry);
   }
 
-  async updateStatus(id: string, vendorId: string, status: Inquiry["status"]): Promise<Inquiry | null> {
-    const rows = await this.database<InquiryRow[]>`
-      update inquiries
-      set
-        status = ${status},
-        updated_at = now()
-      where id = ${id} and vendor_id = ${vendorId}
-      returning *
-    `;
+  async findById(id: string): Promise<Inquiry | null> {
+    const rows = mapRows(await this.database.query<InquiryRow>(
+      `select *
+       from inquiries
+       where id = $1
+       limit 1`,
+      [id],
+    ));
 
     return rows[0] ? mapInquiry(rows[0]) : null;
+  }
+
+  async update(
+    id: string,
+    input: Partial<Pick<Inquiry, "customerName" | "customerEmail" | "customerPhone" | "eventType" | "eventDate" | "message" | "status">>,
+  ): Promise<Inquiry | null> {
+    const rows = mapRows(await this.database.query<InquiryRow>(
+      `update inquiries
+       set
+         customer_name = coalesce($1, customer_name),
+         customer_email = coalesce($2, customer_email),
+         customer_phone = coalesce($3, customer_phone),
+         event_type = coalesce($4, event_type),
+         event_date = coalesce($5, event_date),
+         message = coalesce($6, message),
+         status = coalesce($7, status),
+         updated_at = now()
+       where id = $8
+       returning *`,
+      [
+        input.customerName ?? null,
+        input.customerEmail ?? null,
+        input.customerPhone ?? null,
+        input.eventType ?? null,
+        input.eventDate ?? null,
+        input.message ?? null,
+        input.status ?? null,
+        id,
+      ],
+    ));
+
+    return rows[0] ? mapInquiry(rows[0]) : null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const rows = mapRows(await this.database.query<{ id: string }>(
+      `delete from inquiries
+       where id = $1
+       returning id`,
+      [id],
+    ));
+
+    return rows.length > 0;
   }
 }

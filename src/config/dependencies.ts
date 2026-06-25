@@ -11,15 +11,13 @@ import {
   MemoryVendorRepository,
 } from "../repositories/in-memory-repositories.js";
 import { PostgresCatalogItemRepository, PostgresInquiryRepository, PostgresVendorRepository } from "../repositories/supabase-repositories.js";
-import { requireVendorAuth } from "../shared/middleware/auth.middleware.js";
 import { VendorController } from "../vendor/vendor.controller.js";
 import { VendorService } from "../vendor/vendor.service.js";
 import { createDatabaseClient } from "./database.js";
-import { createSupabaseAuthClient } from "./supabase-auth.js";
 
 export function buildDependencies(config: AppConfig) {
   const useDatabase = Boolean(config.databaseUrl);
-  const authKey = config.supabaseServiceRoleKey ?? config.supabaseAnonKey;
+  console.log(`[startup] Repository mode: ${useDatabase ? "postgres" : "in-memory"}`);
 
   const database = useDatabase
     ? createDatabaseClient(config.databaseUrl!)
@@ -29,11 +27,8 @@ export function buildDependencies(config: AppConfig) {
     ? new PostgresCatalogItemRepository(database)
     : new MemoryCatalogItemRepository();
   const inquiryRepository = database ? new PostgresInquiryRepository(database) : new MemoryInquiryRepository();
-  const authClient = config.supabaseUrl && authKey
-    ? createSupabaseAuthClient(config.supabaseUrl, authKey)
-    : null;
 
-  const authService = new AuthService(authClient, vendorRepository);
+  const authService = new AuthService(vendorRepository, config);
   const catalogService = new CatalogService(catalogItemRepository, vendorRepository);
   const inquiryService = new InquiryService(inquiryRepository, catalogItemRepository, vendorRepository);
   const vendorService = new VendorService(vendorRepository);
@@ -43,6 +38,5 @@ export function buildDependencies(config: AppConfig) {
     catalogController: new CatalogController(catalogService),
     inquiryController: new InquiryController(inquiryService),
     vendorController: new VendorController(vendorService),
-    requireVendorAuth: requireVendorAuth(authClient, vendorRepository),
   };
 }

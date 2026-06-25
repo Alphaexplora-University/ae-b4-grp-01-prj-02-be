@@ -2,7 +2,9 @@ import type { CatalogItem, Inquiry, Vendor } from "../types/entities.js";
 import type {
   CatalogItemFilters,
   CatalogItemRepository,
+  CreateVendorInput,
   InquiryRepository,
+  VendorAuthRecord,
   VendorRepository,
 } from "./repository.types.js";
 import { createId, nowIso } from "./id.js";
@@ -10,16 +12,31 @@ import { catalogItemsSeed, vendorsSeed } from "./seed.js";
 
 export class MemoryVendorRepository implements VendorRepository {
   private readonly vendors = new Map(vendorsSeed.map((vendor) => [vendor.id, vendor]));
+  private readonly passwordHashes = new Map<string, string>();
+
+  async findMany(): Promise<Vendor[]> {
+    return [...this.vendors.values()].sort((left, right) => left.businessName.localeCompare(right.businessName));
+  }
 
   async findById(id: string): Promise<Vendor | null> {
     return this.vendors.get(id) ?? null;
   }
 
-  async findByOwnerUserId(ownerUserId: string): Promise<Vendor | null> {
-    return [...this.vendors.values()].find((vendor) => vendor.ownerUserId === ownerUserId) ?? null;
+  async findAuthByEmail(email: string): Promise<VendorAuthRecord | null> {
+    const vendor = [...this.vendors.values()].find((entry) => entry.contactEmail.toLowerCase() === email.toLowerCase());
+    if (!vendor) {
+      return null;
+    }
+
+    const passwordHash = this.passwordHashes.get(vendor.id);
+    if (!passwordHash) {
+      return null;
+    }
+
+    return { vendor, passwordHash };
   }
 
-  async create(input: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Promise<Vendor> {
+  async create(input: CreateVendorInput): Promise<Vendor> {
     const timestamp = nowIso();
     const vendor: Vendor = {
       ...input,
@@ -29,6 +46,9 @@ export class MemoryVendorRepository implements VendorRepository {
     };
 
     this.vendors.set(vendor.id, vendor);
+    if (input.passwordHash) {
+      this.passwordHashes.set(vendor.id, input.passwordHash);
+    }
     return vendor;
   }
 
@@ -49,6 +69,11 @@ export class MemoryVendorRepository implements VendorRepository {
 
     this.vendors.set(id, updated);
     return updated;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    this.passwordHashes.delete(id);
+    return this.vendors.delete(id);
   }
 }
 
@@ -92,11 +117,10 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
 
   async update(
     id: string,
-    vendorId: string,
     input: Partial<Omit<CatalogItem, "id" | "vendorId" | "createdAt" | "updatedAt">>,
   ): Promise<CatalogItem | null> {
     const current = this.items.get(id);
-    if (!current || current.vendorId !== vendorId) {
+    if (!current) {
       return null;
     }
 
@@ -109,11 +133,7 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
     return updated;
   }
 
-  async delete(id: string, vendorId: string): Promise<boolean> {
-    const current = this.items.get(id);
-    if (!current || current.vendorId !== vendorId) {
-      return false;
-    }
+  async delete(id: string): Promise<boolean> {
     return this.items.delete(id);
   }
 }
@@ -134,26 +154,37 @@ export class MemoryInquiryRepository implements InquiryRepository {
     return inquiry;
   }
 
-  async findByVendorId(vendorId: string, status?: Inquiry["status"]): Promise<Inquiry[]> {
+  async findMany(filters?: { vendorId?: string; status?: Inquiry["status"] }): Promise<Inquiry[]> {
     return [...this.inquiries.values()]
-      .filter((inquiry) => inquiry.vendorId === vendorId)
-      .filter((inquiry) => !status || inquiry.status === status)
+      .filter((inquiry) => !filters?.vendorId || inquiry.vendorId === filters.vendorId)
+      .filter((inquiry) => !filters?.status || inquiry.status === filters.status)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
-  async updateStatus(id: string, vendorId: string, status: Inquiry["status"]): Promise<Inquiry | null> {
+  async findById(id: string): Promise<Inquiry | null> {
+    return this.inquiries.get(id) ?? null;
+  }
+
+  async update(
+    id: string,
+    input: Partial<Pick<Inquiry, "customerName" | "customerEmail" | "customerPhone" | "eventType" | "eventDate" | "message" | "status">>,
+  ): Promise<Inquiry | null> {
     const current = this.inquiries.get(id);
-    if (!current || current.vendorId !== vendorId) {
+    if (!current) {
       return null;
     }
 
     const updated: Inquiry = {
       ...current,
-      status,
+      ...input,
       updatedAt: nowIso(),
     };
 
     this.inquiries.set(id, updated);
     return updated;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.inquiries.delete(id);
   }
 }

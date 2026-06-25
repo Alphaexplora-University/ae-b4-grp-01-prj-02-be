@@ -1,4 +1,7 @@
-import type { SupabaseAuthClient } from "../config/supabase-auth.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
+import type { AppConfig } from "../config/app-config.js";
 import type { VendorRepository } from "../repositories/repository.types.js";
 import { UnauthorizedError, ValidationError } from "../shared/utils/app-error.js";
 import type { Vendor } from "../types/entities.js";
@@ -11,67 +14,59 @@ export interface AuthResult {
 
 export class AuthService {
   constructor(
-    private readonly authClient: SupabaseAuthClient | null,
     private readonly vendors: VendorRepository,
+    private readonly config: Pick<AppConfig, "jwtSecret">,
   ) {}
 
-  private requireAuthClient(): SupabaseAuthClient {
-    if (!this.authClient) {
-      throw new UnauthorizedError("Authentication is not configured on the backend.");
-    }
-
-    return this.authClient;
+  private createAccessToken(vendor: Vendor): string {
+    return jwt.sign(
+      {
+        sub: vendor.id,
+        role: "vendor",
+        email: vendor.contactEmail,
+      },
+      this.config.jwtSecret,
+      { expiresIn: "7d" },
+    );
   }
 
   async loginVendor(email: string, password: string): Promise<AuthResult> {
-    const auth = await this.requireAuthClient().signInWithPassword(email, password);
-    const vendor = await this.vendors.findByOwnerUserId(auth.user.id);
-    if (!vendor) {
-      throw new UnauthorizedError("The authenticated user is not linked to a vendor account.");
+    const authRecord = await this.vendors.findAuthByEmail(email);
+    if (!authRecord) {
+      throw new UnauthorizedError("Invalid email or password.");
+    }
+
+    const isValid = await bcrypt.compare(password, authRecord.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedError("Invalid email or password.");
     }
 
     return {
-      accessToken: auth.accessToken,
-      vendor,
+      accessToken: this.createAccessToken(authRecord.vendor),
+      vendor: authRecord.vendor,
     };
   }
 
   async signupVendor(input: SignupVendorDto): Promise<AuthResult> {
-    const authClient = this.requireAuthClient();
-    const existingByEmail = await this.loginIfExisting(input.email, input.password);
-    if (existingByEmail) {
+    const existing = await this.vendors.findAuthByEmail(input.email);
+    if (existing) {
       throw new ValidationError("A vendor account with this email already exists.");
     }
 
-    const auth = await authClient.signUpWithPassword(input.email, input.password);
-    const existingVendor = await this.vendors.findByOwnerUserId(auth.user.id);
-    if (existingVendor) {
-      return {
-        accessToken: auth.accessToken,
-        vendor: existingVendor,
-      };
-    }
-
+    const passwordHash = await bcrypt.hash(input.password, 10);
     const vendor = await this.vendors.create({
-      ownerUserId: auth.user.id,
+      ownerUserId: randomUUID(),
       businessName: input.businessName,
       description: input.description,
       location: input.location,
-      contactEmail: input.contactEmail,
+      contactEmail: input.email,
       contactPhone: input.contactPhone,
+      passwordHash,
     });
 
     return {
-      accessToken: auth.accessToken,
+      accessToken: this.createAccessToken(vendor),
       vendor,
     };
-  }
-
-  private async loginIfExisting(email: string, password: string) {
-    try {
-      return await this.loginVendor(email, password);
-    } catch {
-      return null;
-    }
   }
 }

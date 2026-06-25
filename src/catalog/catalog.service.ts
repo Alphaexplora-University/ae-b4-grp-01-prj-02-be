@@ -19,21 +19,21 @@ export class CatalogService {
 
   async getCatalogItemById(itemId: string): Promise<CatalogItem> {
     const item = await this.catalogItems.findById(itemId);
-    if (!item || item.status !== "active") {
+    if (!item) {
       throw new NotFoundError("Catalog item");
     }
 
     return item;
   }
 
-  async createCatalogItem(vendorId: string, input: CreateCatalogItemDto): Promise<CatalogItem> {
-    const vendor = await this.vendors.findById(vendorId);
+  async createCatalogItem(input: CreateCatalogItemDto): Promise<CatalogItem> {
+    const vendor = await this.vendors.findById(input.vendorId);
     if (!vendor) {
       throw new NotFoundError("Vendor");
     }
 
     return this.catalogItems.create({
-      vendorId,
+      vendorId: input.vendorId,
       name: input.name,
       category: input.category,
       description: input.description,
@@ -44,34 +44,18 @@ export class CatalogService {
     });
   }
 
-  async updateCatalogItem(
-    vendorId: string,
-    itemId: string,
-    input: UpdateCatalogItemDto,
-  ): Promise<CatalogItem> {
-    const updated = await this.catalogItems.update(itemId, vendorId, input);
+  async updateCatalogItem(itemId: string, input: UpdateCatalogItemDto): Promise<CatalogItem> {
+    const updated = await this.catalogItems.update(itemId, input);
     if (!updated) {
       throw new NotFoundError("Catalog item");
     }
     return updated;
   }
 
-  async deleteCatalogItem(vendorId: string, itemId: string): Promise<void> {
-    const deleted = await this.catalogItems.delete(itemId, vendorId);
+  async deleteCatalogItem(itemId: string): Promise<void> {
+    const deleted = await this.catalogItems.delete(itemId);
     if (!deleted) {
       throw new NotFoundError("Catalog item");
     }
-  }
-
-  async listVendorCatalogItems(vendorId: string): Promise<CatalogItem[]> {
-    const vendor = await this.vendors.findById(vendorId);
-    if (!vendor) {
-      throw new NotFoundError("Vendor");
-    }
-
-    return this.catalogItems.findMany({
-      vendorId,
-      includeInactive: true,
-    });
   }
 }

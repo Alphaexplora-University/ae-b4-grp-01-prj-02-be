@@ -2,9 +2,9 @@ import type { CatalogItemRepository, InquiryRepository, VendorRepository } from 
 import { NotFoundError } from "../shared/utils/app-error.js";
 import type { Inquiry } from "../types/entities.js";
 import type {
+  InquiryFiltersDto,
   SubmitInquiryDto,
   UpdateInquiryStatusDto,
-  VendorInquiryFiltersDto,
 } from "./inquiry.validator.js";
 
 export class InquiryService {
@@ -15,13 +15,18 @@ export class InquiryService {
   ) {}
 
   async submitInquiry(input: SubmitInquiryDto): Promise<Inquiry> {
+    const vendor = await this.vendors.findById(input.vendorId);
+    if (!vendor) {
+      throw new NotFoundError("Vendor");
+    }
+
     const catalogItem = await this.catalogItems.findById(input.catalogItemId);
-    if (!catalogItem || catalogItem.status !== "active") {
+    if (!catalogItem) {
       throw new NotFoundError("Catalog item");
     }
 
     return this.inquiries.create({
-      vendorId: catalogItem.vendorId,
+      vendorId: input.vendorId,
       catalogItemId: input.catalogItemId,
       customerName: input.customerName,
       customerEmail: input.customerEmail,
@@ -32,26 +37,32 @@ export class InquiryService {
     });
   }
 
-  async listVendorInquiries(vendorId: string, filters: VendorInquiryFiltersDto): Promise<Inquiry[]> {
-    const vendor = await this.vendors.findById(vendorId);
-    if (!vendor) {
-      throw new NotFoundError("Vendor");
-    }
-
-    return this.inquiries.findByVendorId(vendorId, filters.status);
+  listInquiries(filters: InquiryFiltersDto): Promise<Inquiry[]> {
+    return this.inquiries.findMany(filters);
   }
 
-  async updateInquiryStatus(vendorId: string, inquiryId: string, input: UpdateInquiryStatusDto): Promise<Inquiry> {
-    const vendor = await this.vendors.findById(vendorId);
-    if (!vendor) {
-      throw new NotFoundError("Vendor");
+  async getInquiryById(inquiryId: string): Promise<Inquiry> {
+    const inquiry = await this.inquiries.findById(inquiryId);
+    if (!inquiry) {
+      throw new NotFoundError("Inquiry");
     }
 
-    const updated = await this.inquiries.updateStatus(inquiryId, vendorId, input.status);
+    return inquiry;
+  }
+
+  async updateInquiry(inquiryId: string, input: UpdateInquiryStatusDto): Promise<Inquiry> {
+    const updated = await this.inquiries.update(inquiryId, input);
     if (!updated) {
       throw new NotFoundError("Inquiry");
     }
 
     return updated;
+  }
+
+  async deleteInquiry(inquiryId: string): Promise<void> {
+    const deleted = await this.inquiries.delete(inquiryId);
+    if (!deleted) {
+      throw new NotFoundError("Inquiry");
+    }
   }
 }

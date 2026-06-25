@@ -1,15 +1,14 @@
-import { Router, type RequestHandler } from "express";
+import { Router } from "express";
 import type { VendorController } from "./vendor.controller.js";
 
-export function vendorRoutes(
-  vendorController: VendorController,
-  requireVendorAuth: RequestHandler,
-): Router {
+export function vendorRoutes(vendorController: VendorController): Router {
   const router = Router();
 
+  router.get("/vendors", vendorController.listVendors);
+  router.post("/vendors", vendorController.createVendor);
   router.get("/vendors/:vendorId", vendorController.getVendorById);
-  router.get("/vendors/me", requireVendorAuth, vendorController.getAuthenticatedVendorProfile);
-  router.patch("/vendors/me", requireVendorAuth, vendorController.updateAuthenticatedVendorProfile);
+  router.patch("/vendors/:vendorId", vendorController.updateVendor);
+  router.delete("/vendors/:vendorId", vendorController.deleteVendor);
 
   return router;
 }

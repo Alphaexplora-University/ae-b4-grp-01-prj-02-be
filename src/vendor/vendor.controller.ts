@@ -1,19 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
-import { UnauthorizedError } from "../shared/utils/app-error.js";
 import { requireRouteParam } from "../shared/utils/route-params.js";
 import type { VendorService } from "./vendor.service.js";
-import { updateVendorProfileSchema } from "./vendor.validator.js";
-
-function requireAuthenticatedVendor(request: Request): { userId: string; vendorId: string } {
-  if (!request.authenticatedVendor) {
-    throw new UnauthorizedError("Vendor authentication is required.");
-  }
-
-  return request.authenticatedVendor;
-}
+import { createVendorSchema, updateVendorProfileSchema } from "./vendor.validator.js";
 
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
+
+  listVendors = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const vendors = await this.vendorService.listVendors();
+      response.json({ data: vendors });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   getVendorById = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
@@ -25,30 +25,36 @@ export class VendorController {
     }
   };
 
-  getAuthenticatedVendorProfile = async (
+  createVendor = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = createVendorSchema.parse(request.body);
+      const vendor = await this.vendorService.createVendor(input);
+      response.status(201).json({ data: vendor });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateVendor = async (
     request: Request,
     response: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const auth = requireAuthenticatedVendor(request);
-      const vendor = await this.vendorService.getVendorByOwnerUserId(auth.userId);
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const input = updateVendorProfileSchema.parse(request.body);
+      const vendor = await this.vendorService.updateVendor(vendorId, input);
       response.json({ data: vendor });
     } catch (error) {
       next(error);
     }
   };
 
-  updateAuthenticatedVendorProfile = async (
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
+  deleteVendor = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      const auth = requireAuthenticatedVendor(request);
-      const input = updateVendorProfileSchema.parse(request.body);
-      const vendor = await this.vendorService.updateVendorProfile(auth.vendorId, input);
-      response.json({ data: vendor });
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      await this.vendorService.deleteVendor(vendorId);
+      response.status(204).send();
     } catch (error) {
       next(error);
     }

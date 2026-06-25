@@ -2,9 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 import { requireRouteParam } from "../shared/utils/route-params.js";
 import type { InquiryService } from "./inquiry.service.js";
 import {
+  inquiryFiltersSchema,
   submitInquirySchema,
   updateInquiryStatusSchema,
-  vendorInquiryFiltersSchema,
 } from "./inquiry.validator.js";
 
 export class InquiryController {
@@ -20,24 +20,42 @@ export class InquiryController {
     }
   };
 
-  listVendorInquiries = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  listInquiries = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
-      const filters = vendorInquiryFiltersSchema.parse(request.query);
-      const inquiries = await this.inquiryService.listVendorInquiries(vendorId, filters);
+      const filters = inquiryFiltersSchema.parse(request.query);
+      const inquiries = await this.inquiryService.listInquiries(filters);
       response.json({ data: inquiries });
     } catch (error) {
       next(error);
     }
   };
 
-  updateInquiryStatus = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  getInquiryById = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const inquiryId = requireRouteParam(request.params.inquiryId, "inquiryId");
+      const inquiry = await this.inquiryService.getInquiryById(inquiryId);
+      response.json({ data: inquiry });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateInquiry = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
       const inquiryId = requireRouteParam(request.params.inquiryId, "inquiryId");
       const input = updateInquiryStatusSchema.parse(request.body);
-      const inquiry = await this.inquiryService.updateInquiryStatus(vendorId, inquiryId, input);
+      const inquiry = await this.inquiryService.updateInquiry(inquiryId, input);
       response.json({ data: inquiry });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteInquiry = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const inquiryId = requireRouteParam(request.params.inquiryId, "inquiryId");
+      await this.inquiryService.deleteInquiry(inquiryId);
+      response.status(204).send();
     } catch (error) {
       next(error);
     }

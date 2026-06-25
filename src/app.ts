@@ -12,7 +12,7 @@ import { vendorRoutes } from "./vendor/vendor.routes.js";
 
 export function createApp(config: AppConfig) {
   const app = express();
-  const { authController, catalogController, inquiryController, vendorController, requireVendorAuth } = buildDependencies(config);
+  const { authController, catalogController, inquiryController, vendorController } = buildDependencies(config);
 
   app.use(helmet());
   app.use(cors({ origin: config.webOrigin }));
@@ -24,9 +24,9 @@ export function createApp(config: AppConfig) {
   });
 
   app.use("/api", authRoutes(authController));
-  app.use("/api", vendorRoutes(vendorController, requireVendorAuth));
-  app.use("/api", catalogRoutes(catalogController, requireVendorAuth));
-  app.use("/api", inquiryRoutes(inquiryController, requireVendorAuth));
+  app.use("/api", vendorRoutes(vendorController));
+  app.use("/api", catalogRoutes(catalogController));
+  app.use("/api", inquiryRoutes(inquiryController));
   app.use(errorHandler);
 
   return app;

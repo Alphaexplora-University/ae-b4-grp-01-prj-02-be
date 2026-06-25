@@ -1,21 +1,14 @@
-import { Router, type RequestHandler } from "express";
-import { requireVendorAccess } from "../shared/middleware/auth.middleware.js";
+import { Router } from "express";
 import type { InquiryController } from "./inquiry.controller.js";
 
-export function inquiryRoutes(
-  inquiryController: InquiryController,
-  requireVendorAuth: RequestHandler,
-): Router {
+export function inquiryRoutes(inquiryController: InquiryController): Router {
   const router = Router();
 
+  router.get("/inquiries", inquiryController.listInquiries);
   router.post("/inquiries", inquiryController.submitInquiry);
-  router.get("/vendors/:vendorId/inquiries", requireVendorAuth, requireVendorAccess, inquiryController.listVendorInquiries);
-  router.patch(
-    "/vendors/:vendorId/inquiries/:inquiryId/status",
-    requireVendorAuth,
-    requireVendorAccess,
-    inquiryController.updateInquiryStatus,
-  );
+  router.get("/inquiries/:inquiryId", inquiryController.getInquiryById);
+  router.patch("/inquiries/:inquiryId", inquiryController.updateInquiry);
+  router.delete("/inquiries/:inquiryId", inquiryController.deleteInquiry);
 
   return router;
 }

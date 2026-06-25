@@ -23,8 +23,7 @@ export class CatalogController {
   createCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input = createCatalogItemSchema.parse(request.body);
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
-      const item = await this.catalogService.createCatalogItem(vendorId, input);
+      const item = await this.catalogService.createCatalogItem(input);
       response.status(201).json({ data: item });
     } catch (error) {
       next(error);
@@ -44,9 +43,8 @@ export class CatalogController {
   updateCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input = updateCatalogItemSchema.parse(request.body);
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
       const itemId = requireRouteParam(request.params.itemId, "itemId");
-      const item = await this.catalogService.updateCatalogItem(vendorId, itemId, input);
+      const item = await this.catalogService.updateCatalogItem(itemId, input);
       response.json({ data: item });
     } catch (error) {
       next(error);
@@ -55,20 +53,9 @@ export class CatalogController {
 
   deleteCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
       const itemId = requireRouteParam(request.params.itemId, "itemId");
-      await this.catalogService.deleteCatalogItem(vendorId, itemId);
+      await this.catalogService.deleteCatalogItem(itemId);
       response.status(204).send();
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  listVendorCatalogItems = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
-      const items = await this.catalogService.listVendorCatalogItems(vendorId);
-      response.json({ data: items });
     } catch (error) {
       next(error);
     }

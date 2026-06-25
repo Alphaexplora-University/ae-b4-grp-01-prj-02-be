@@ -1,19 +1,14 @@
-import { Router, type RequestHandler } from "express";
-import { requireVendorAccess } from "../shared/middleware/auth.middleware.js";
+import { Router } from "express";
 import type { CatalogController } from "./catalog.controller.js";
 
-export function catalogRoutes(
-  catalogController: CatalogController,
-  requireVendorAuth: RequestHandler,
-): Router {
+export function catalogRoutes(catalogController: CatalogController): Router {
   const router = Router();
 
   router.get("/catalog-items", catalogController.listCatalogItems);
+  router.post("/catalog-items", catalogController.createCatalogItem);
   router.get("/catalog-items/:itemId", catalogController.getCatalogItemById);
-  router.get("/vendors/:vendorId/catalog-items", requireVendorAuth, requireVendorAccess, catalogController.listVendorCatalogItems);
-  router.post("/vendors/:vendorId/catalog-items", requireVendorAuth, requireVendorAccess, catalogController.createCatalogItem);
-  router.patch("/vendors/:vendorId/catalog-items/:itemId", requireVendorAuth, requireVendorAccess, catalogController.updateCatalogItem);
-  router.delete("/vendors/:vendorId/catalog-items/:itemId", requireVendorAuth, requireVendorAccess, catalogController.deleteCatalogItem);
+  router.patch("/catalog-items/:itemId", catalogController.updateCatalogItem);
+  router.delete("/catalog-items/:itemId", catalogController.deleteCatalogItem);
 
   return router;
 }

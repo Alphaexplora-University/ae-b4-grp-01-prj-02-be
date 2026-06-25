@@ -1,44 +1,22 @@
 import type { RequestHandler } from "express";
-import type { SupabaseAuthClient } from "../../config/supabase-auth.js";
 import type { VendorRepository } from "../../repositories/repository.types.js";
 import { ForbiddenError, UnauthorizedError } from "../utils/app-error.js";
 
-function extractBearerToken(authorizationHeader?: string): string | null {
-  if (!authorizationHeader) {
-    return null;
-  }
-
-  const [scheme, token] = authorizationHeader.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) {
-    return null;
-  }
-
-  return token;
-}
-
-export function requireVendorAuth(
-  authClient: SupabaseAuthClient | null,
-  vendors: VendorRepository,
-): RequestHandler {
+export function requireVendorAuth(vendors: VendorRepository): RequestHandler {
   return async (request, _response, next) => {
     try {
-      if (!authClient) {
-        throw new UnauthorizedError("Vendor authentication is not configured on the backend.");
+      const vendorId = request.header("x-vendor-id");
+      if (!vendorId) {
+        throw new UnauthorizedError("Missing x-vendor-id header.");
       }
 
-      const token = extractBearerToken(request.header("authorization"));
-      if (!token) {
-        throw new UnauthorizedError("Missing bearer token.");
-      }
-
-      const user = await authClient.getUser(token);
-      const vendor = await vendors.findByOwnerUserId(user.id);
+      const vendor = await vendors.findById(vendorId);
       if (!vendor) {
-        throw new ForbiddenError("The authenticated user is not linked to a vendor account.");
+        throw new ForbiddenError("The supplied x-vendor-id is not linked to a vendor account.");
       }
 
       request.authenticatedVendor = {
-        userId: user.id,
+        userId: vendor.ownerUserId,
         vendorId: vendor.id,
       };
 

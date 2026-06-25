@@ -9,6 +9,7 @@ export const catalogItemFiltersSchema = z.object({
 });
 
 export const createCatalogItemSchema = z.object({
+  vendorId: z.string().uuid(),
   name: z.string().trim().min(2).max(180),
   category: z.string().trim().min(2).max(120),
   description: z.string().trim().min(10).max(4000),
