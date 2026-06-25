@@ -95,10 +95,6 @@ function mapInquiry(row: InquiryRow): Inquiry {
   };
 }
 
-function throwOnError(context: string, error: { message: string }): never {
-  throw new Error(`Database ${context} failed: ${error.message}`);
-}
-
 export class PostgresVendorRepository implements VendorRepository {
   constructor(private readonly database: Sql) {}
 
@@ -112,6 +108,37 @@ export class PostgresVendorRepository implements VendorRepository {
 
     return rows[0] ? mapVendor(rows[0]) : null;
   }
+
+  async findByOwnerUserId(ownerUserId: string): Promise<Vendor | null> {
+    const rows = await this.database<VendorRow[]>`
+      select *
+      from vendors
+      where owner_user_id = ${ownerUserId}
+      limit 1
+    `;
+
+    return rows[0] ? mapVendor(rows[0]) : null;
+  }
+
+  async update(
+    id: string,
+    input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,
+  ): Promise<Vendor | null> {
+    const rows = await this.database<VendorRow[]>`
+      update vendors
+      set
+        business_name = coalesce(${input.businessName ?? null}, business_name),
+        description = coalesce(${input.description ?? null}, description),
+        location = coalesce(${input.location ?? null}, location),
+        contact_email = coalesce(${input.contactEmail ?? null}, contact_email),
+        contact_phone = coalesce(${input.contactPhone ?? null}, contact_phone),
+        updated_at = now()
+      where id = ${id}
+      returning *
+    `;
+
+    return rows[0] ? mapVendor(rows[0]) : null;
+  }
 }
 
 export class PostgresCatalogItemRepository implements CatalogItemRepository {
@@ -121,7 +148,8 @@ export class PostgresCatalogItemRepository implements CatalogItemRepository {
     const rows = await this.database<CatalogItemRow[]>`
       select *
       from catalog_items
-      where ${filters.vendorId ? this.database`vendor_id = ${filters.vendorId}` : this.database`status = 'active'`}
+      where ${filters.vendorId ? this.database`vendor_id = ${filters.vendorId}` : this.database`true`}
+        and ${filters.includeInactive ? this.database`true` : this.database`status = 'active'`}
       order by name asc
     `;
 
@@ -260,14 +288,28 @@ export class PostgresInquiryRepository implements InquiryRepository {
     return mapInquiry(createdRow);
   }
 
-  async findByVendorId(vendorId: string): Promise<Inquiry[]> {
+  async findByVendorId(vendorId: string, status?: Inquiry["status"]): Promise<Inquiry[]> {
     const rows = await this.database<InquiryRow[]>`
       select *
       from inquiries
       where vendor_id = ${vendorId}
+        and ${status ? this.database`status = ${status}` : this.database`true`}
       order by created_at desc
     `;
 
     return rows.map(mapInquiry);
+  }
+
+  async updateStatus(id: string, vendorId: string, status: Inquiry["status"]): Promise<Inquiry | null> {
+    const rows = await this.database<InquiryRow[]>`
+      update inquiries
+      set
+        status = ${status},
+        updated_at = now()
+      where id = ${id} and vendor_id = ${vendorId}
+      returning *
+    `;
+
+    return rows[0] ? mapInquiry(rows[0]) : null;
   }
 }

@@ -6,6 +6,7 @@ export interface CatalogItemFilters {
   location?: string;
   availabilityTag?: string;
   vendorId?: string;
+  includeInactive?: boolean;
 }
 
 export interface CatalogItemRepository {
@@ -22,9 +23,15 @@ export interface CatalogItemRepository {
 
 export interface VendorRepository {
   findById(id: string): Promise<Vendor | null>;
+  findByOwnerUserId(ownerUserId: string): Promise<Vendor | null>;
+  update(
+    id: string,
+    input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,
+  ): Promise<Vendor | null>;
 }
 
 export interface InquiryRepository {
   create(input: Omit<Inquiry, "id" | "status" | "createdAt" | "updatedAt">): Promise<Inquiry>;
-  findByVendorId(vendorId: string): Promise<Inquiry[]>;
+  findByVendorId(vendorId: string, status?: Inquiry["status"]): Promise<Inquiry[]>;
+  updateStatus(id: string, vendorId: string, status: Inquiry["status"]): Promise<Inquiry | null>;
 }

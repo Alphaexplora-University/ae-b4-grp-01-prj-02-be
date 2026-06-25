@@ -24,6 +24,11 @@ export interface Vendor {
   updatedAt: string;
 }
 
+export interface AuthenticatedVendor {
+  userId: string;
+  vendorId: string;
+}
+
 export interface CatalogItem {
   id: string;
   vendorId: string;

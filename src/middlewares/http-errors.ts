@@ -20,6 +20,12 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AppError {
+  constructor(message = "Authentication is required to access this resource.") {
+    super(message, 401, "UNAUTHORIZED");
+  }
+}
+
 export class ValidationError extends AppError {
   constructor(message: string) {
     super(message, 400, "VALIDATION_ERROR");

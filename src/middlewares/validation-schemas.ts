@@ -8,6 +8,10 @@ export const catalogItemFiltersSchema = z.object({
   vendorId: z.string().uuid().optional(),
 });
 
+export const vendorInquiryFiltersSchema = z.object({
+  status: z.enum(["new", "reviewed", "closed"]).optional(),
+});
+
 export const submitInquirySchema = z.object({
   catalogItemId: z.string().uuid(),
   customerName: z.string().trim().min(2).max(160),
@@ -30,7 +34,22 @@ export const createCatalogItemSchema = z.object({
 
 export const updateCatalogItemSchema = createCatalogItemSchema.partial();
 
+export const updateInquiryStatusSchema = z.object({
+  status: z.enum(["new", "reviewed", "closed"]),
+});
+
+export const updateVendorProfileSchema = z.object({
+  businessName: z.string().trim().min(2).max(180).optional(),
+  description: z.string().trim().min(10).max(4000).optional(),
+  location: z.string().trim().min(2).max(160).optional(),
+  contactEmail: z.string().trim().email().max(255).optional(),
+  contactPhone: z.string().trim().max(40).optional(),
+});
+
 export type CatalogItemFiltersDto = z.infer<typeof catalogItemFiltersSchema>;
+export type VendorInquiryFiltersDto = z.infer<typeof vendorInquiryFiltersSchema>;
 export type SubmitInquiryDto = z.infer<typeof submitInquirySchema>;
 export type CreateCatalogItemDto = z.infer<typeof createCatalogItemSchema>;
 export type UpdateCatalogItemDto = z.infer<typeof updateCatalogItemSchema>;
+export type UpdateInquiryStatusDto = z.infer<typeof updateInquiryStatusSchema>;
+export type UpdateVendorProfileDto = z.infer<typeof updateVendorProfileSchema>;

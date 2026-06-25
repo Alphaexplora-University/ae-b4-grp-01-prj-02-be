@@ -38,6 +38,16 @@ export class CatalogController {
     }
   };
 
+  getCatalogItemById = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const itemId = requireRouteParam(request.params.itemId, "itemId");
+      const item = await this.catalogService.getCatalogItemById(itemId);
+      response.json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input = updateCatalogItemSchema.parse(request.body);
@@ -56,6 +66,16 @@ export class CatalogController {
       const itemId = requireRouteParam(request.params.itemId, "itemId");
       await this.catalogService.deleteCatalogItem(vendorId, itemId);
       response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listVendorCatalogItems = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const items = await this.catalogService.listVendorCatalogItems(vendorId);
+      response.json({ data: items });
     } catch (error) {
       next(error);
     }

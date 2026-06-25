@@ -7,10 +7,11 @@ import { buildDependencies } from "./config/dependencies.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { catalogRoutes } from "./routes/catalog.routes.js";
 import { inquiryRoutes } from "./routes/inquiry.routes.js";
+import { vendorRoutes } from "./routes/vendor.routes.js";
 
 export function createApp(config: AppConfig) {
   const app = express();
-  const { catalogController, inquiryController } = buildDependencies(config);
+  const { catalogController, inquiryController, vendorController, requireVendorAuth } = buildDependencies(config);
 
   app.use(helmet());
   app.use(cors({ origin: config.webOrigin }));
@@ -21,8 +22,9 @@ export function createApp(config: AppConfig) {
     response.json({ status: "ok" });
   });
 
-  app.use("/api", catalogRoutes(catalogController));
-  app.use("/api", inquiryRoutes(inquiryController));
+  app.use("/api", vendorRoutes(vendorController, requireVendorAuth));
+  app.use("/api", catalogRoutes(catalogController, requireVendorAuth));
+  app.use("/api", inquiryRoutes(inquiryController, requireVendorAuth));
   app.use(errorHandler);
 
   return app;

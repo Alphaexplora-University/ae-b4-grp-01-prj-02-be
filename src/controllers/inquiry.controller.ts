@@ -1,5 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import { submitInquirySchema } from "../middlewares/validation-schemas.js";
+import {
+  submitInquirySchema,
+  updateInquiryStatusSchema,
+  vendorInquiryFiltersSchema,
+} from "../middlewares/validation-schemas.js";
 import type { InquiryService } from "../services/inquiry.service.js";
 
 function requireRouteParam(value: string | undefined, name: string): string {
@@ -26,8 +30,21 @@ export class InquiryController {
   listVendorInquiries = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
-      const inquiries = await this.inquiryService.listVendorInquiries(vendorId);
+      const filters = vendorInquiryFiltersSchema.parse(request.query);
+      const inquiries = await this.inquiryService.listVendorInquiries(vendorId, filters);
       response.json({ data: inquiries });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateInquiryStatus = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const vendorId = requireRouteParam(request.params.vendorId, "vendorId");
+      const inquiryId = requireRouteParam(request.params.inquiryId, "inquiryId");
+      const input = updateInquiryStatusSchema.parse(request.body);
+      const inquiry = await this.inquiryService.updateInquiryStatus(vendorId, inquiryId, input);
+      response.json({ data: inquiry });
     } catch (error) {
       next(error);
     }

@@ -13,6 +13,15 @@ export class CatalogService {
     return this.catalogItems.findMany(filters);
   }
 
+  async getCatalogItemById(itemId: string): Promise<CatalogItem> {
+    const item = await this.catalogItems.findById(itemId);
+    if (!item || item.status !== "active") {
+      throw new NotFoundError("Catalog item");
+    }
+
+    return item;
+  }
+
   async createCatalogItem(vendorId: string, input: CreateCatalogItemDto): Promise<CatalogItem> {
     const vendor = await this.vendors.findById(vendorId);
     if (!vendor) {
@@ -48,5 +57,17 @@ export class CatalogService {
     if (!deleted) {
       throw new NotFoundError("Catalog item");
     }
+  }
+
+  async listVendorCatalogItems(vendorId: string): Promise<CatalogItem[]> {
+    const vendor = await this.vendors.findById(vendorId);
+    if (!vendor) {
+      throw new NotFoundError("Vendor");
+    }
+
+    return this.catalogItems.findMany({
+      vendorId,
+      includeInactive: true,
+    });
   }
 }

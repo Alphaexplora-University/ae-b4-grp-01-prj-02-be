@@ -1,7 +1,11 @@
 import type { Inquiry } from "../types/entities.js";
 import { NotFoundError } from "../middlewares/http-errors.js";
 import type { CatalogItemRepository, InquiryRepository, VendorRepository } from "../repositories/repository.types.js";
-import type { SubmitInquiryDto } from "../middlewares/validation-schemas.js";
+import type {
+  SubmitInquiryDto,
+  UpdateInquiryStatusDto,
+  VendorInquiryFiltersDto,
+} from "../middlewares/validation-schemas.js";
 
 export class InquiryService {
   constructor(
@@ -28,12 +32,26 @@ export class InquiryService {
     });
   }
 
-  async listVendorInquiries(vendorId: string): Promise<Inquiry[]> {
+  async listVendorInquiries(vendorId: string, filters: VendorInquiryFiltersDto): Promise<Inquiry[]> {
     const vendor = await this.vendors.findById(vendorId);
     if (!vendor) {
       throw new NotFoundError("Vendor");
     }
 
-    return this.inquiries.findByVendorId(vendorId);
+    return this.inquiries.findByVendorId(vendorId, filters.status);
+  }
+
+  async updateInquiryStatus(vendorId: string, inquiryId: string, input: UpdateInquiryStatusDto): Promise<Inquiry> {
+    const vendor = await this.vendors.findById(vendorId);
+    if (!vendor) {
+      throw new NotFoundError("Vendor");
+    }
+
+    const updated = await this.inquiries.updateStatus(inquiryId, vendorId, input.status);
+    if (!updated) {
+      throw new NotFoundError("Inquiry");
+    }
+
+    return updated;
   }
 }
