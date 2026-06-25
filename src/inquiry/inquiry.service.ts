@@ -1,11 +1,11 @@
-import type { Inquiry } from "../types/entities.js";
-import { NotFoundError } from "../middlewares/http-errors.js";
 import type { CatalogItemRepository, InquiryRepository, VendorRepository } from "../repositories/repository.types.js";
+import { NotFoundError } from "../shared/utils/app-error.js";
+import type { Inquiry } from "../types/entities.js";
 import type {
   SubmitInquiryDto,
   UpdateInquiryStatusDto,
   VendorInquiryFiltersDto,
-} from "../middlewares/validation-schemas.js";
+} from "./inquiry.validator.js";
 
 export class InquiryService {
   constructor(

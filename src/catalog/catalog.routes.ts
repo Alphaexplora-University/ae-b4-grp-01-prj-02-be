@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
-import type { CatalogController } from "../controllers/catalog.controller.js";
-import { requireVendorAccess } from "../middlewares/vendor-auth.js";
+import { requireVendorAccess } from "../shared/middleware/auth.middleware.js";
+import type { CatalogController } from "./catalog.controller.js";
 
 export function catalogRoutes(
   catalogController: CatalogController,

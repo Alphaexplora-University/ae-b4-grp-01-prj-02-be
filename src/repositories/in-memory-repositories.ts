@@ -19,6 +19,19 @@ export class MemoryVendorRepository implements VendorRepository {
     return [...this.vendors.values()].find((vendor) => vendor.ownerUserId === ownerUserId) ?? null;
   }
 
+  async create(input: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Promise<Vendor> {
+    const timestamp = nowIso();
+    const vendor: Vendor = {
+      ...input,
+      id: createId(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.vendors.set(vendor.id, vendor);
+    return vendor;
+  }
+
   async update(
     id: string,
     input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,

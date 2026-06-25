@@ -1,15 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { UnauthorizedError } from "../middlewares/http-errors.js";
-import { updateVendorProfileSchema } from "../middlewares/validation-schemas.js";
-import type { VendorService } from "../services/vendor.service.js";
-
-function requireRouteParam(value: string | undefined, name: string): string {
-  if (!value) {
-    throw new Error(`Missing route param: ${name}`);
-  }
-
-  return value;
-}
+import { UnauthorizedError } from "../shared/utils/app-error.js";
+import { requireRouteParam } from "../shared/utils/route-params.js";
+import type { VendorService } from "./vendor.service.js";
+import { updateVendorProfileSchema } from "./vendor.validator.js";
 
 function requireAuthenticatedVendor(request: Request): { userId: string; vendorId: string } {
   if (!request.authenticatedVendor) {

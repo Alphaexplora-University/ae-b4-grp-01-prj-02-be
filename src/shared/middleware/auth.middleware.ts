@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
-import type { VendorRepository } from "../repositories/repository.types.js";
-import type { SupabaseAuthClient } from "../config/supabase-auth.js";
-import { ForbiddenError, UnauthorizedError } from "./http-errors.js";
+import type { SupabaseAuthClient } from "../../config/supabase-auth.js";
+import type { VendorRepository } from "../../repositories/repository.types.js";
+import { ForbiddenError, UnauthorizedError } from "../utils/app-error.js";
 
 function extractBearerToken(authorizationHeader?: string): string | null {
   if (!authorizationHeader) {

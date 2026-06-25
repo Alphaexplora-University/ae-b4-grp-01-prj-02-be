@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
-import type { InquiryController } from "../controllers/inquiry.controller.js";
-import { requireVendorAccess } from "../middlewares/vendor-auth.js";
+import { requireVendorAccess } from "../shared/middleware/auth.middleware.js";
+import type { InquiryController } from "./inquiry.controller.js";
 
 export function inquiryRoutes(
   inquiryController: InquiryController,

@@ -1,18 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
-import type { CatalogService } from "../services/catalog.service.js";
+import { requireRouteParam } from "../shared/utils/route-params.js";
+import type { CatalogService } from "./catalog.service.js";
 import {
   catalogItemFiltersSchema,
   createCatalogItemSchema,
   updateCatalogItemSchema,
-} from "../middlewares/validation-schemas.js";
-
-function requireRouteParam(value: string | undefined, name: string): string {
-  if (!value) {
-    throw new Error(`Missing route param: ${name}`);
-  }
-
-  return value;
-}
+} from "./catalog.validator.js";
 
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}

@@ -2,15 +2,13 @@
 
 Standalone Node.js + TypeScript backend for the Vendor Catalog Customer Inquiry system.
 
-This backend follows the layered Express architecture requested for the project:
+This backend now follows a feature-based Express architecture with shared infrastructure:
 
-- `config`: app configuration, environment values, and dependency wiring.
-- `routes`: URL path definitions and middleware attachment.
-- `controllers`: request handling and response orchestration.
-- `services`: business rules and workflow logic.
+- `config`: app configuration, database/auth clients, and dependency wiring.
+- `shared`: cross-cutting middleware and reusable utilities.
+- `auth`, `vendor`, `catalog`, `inquiry`: self-contained feature modules with their own routes, controllers, services, and validators.
 - `repositories`: data access, query abstractions, and seed data.
-- `middlewares`: auth guards, validation schemas, HTTP errors, and error handlers.
-- `types`: shared TypeScript contracts used across layers.
+- `types`: shared TypeScript contracts used across the backend.
 
 Admin and Super-Admin scope is intentionally excluded.
 
@@ -18,32 +16,49 @@ Admin and Super-Admin scope is intentionally excluded.
 
 ```text
 src/
-├── config/
-│   ├── app-config.ts
-│   └── dependencies.ts
-├── routes/
-│   ├── catalog.routes.ts
-│   └── inquiry.routes.ts
-├── controllers/
-│   ├── catalog.controller.ts
-│   └── inquiry.controller.ts
-├── services/
-│   ├── catalog.service.ts
-│   └── inquiry.service.ts
-├── repositories/
-│   ├── id.ts
-│   ├── in-memory-repositories.ts
-│   ├── repository.types.ts
-│   └── seed.ts
-├── middlewares/
-│   ├── error-handler.ts
-│   ├── http-errors.ts
-│   ├── validation-schemas.ts
-│   └── vendor-auth.ts
-├── types/
-│   └── entities.ts
-├── app.ts
-└── server.ts
+|-- auth/
+|   |-- auth.routes.ts
+|   |-- auth.controller.ts
+|   |-- auth.service.ts
+|   `-- auth.validator.ts
+|-- catalog/
+|   |-- catalog.routes.ts
+|   |-- catalog.controller.ts
+|   |-- catalog.service.ts
+|   `-- catalog.validator.ts
+|-- inquiry/
+|   |-- inquiry.routes.ts
+|   |-- inquiry.controller.ts
+|   |-- inquiry.service.ts
+|   `-- inquiry.validator.ts
+|-- vendor/
+|   |-- vendor.routes.ts
+|   |-- vendor.controller.ts
+|   |-- vendor.service.ts
+|   `-- vendor.validator.ts
+|-- shared/
+|   |-- middleware/
+|   |   |-- auth.middleware.ts
+|   |   `-- error.middleware.ts
+|   `-- utils/
+|       |-- app-error.ts
+|       `-- route-params.ts
+|-- config/
+|   |-- app-config.ts
+|   |-- database.ts
+|   |-- dependencies.ts
+|   `-- supabase-auth.ts
+|-- repositories/
+|   |-- id.ts
+|   |-- in-memory-repositories.ts
+|   |-- repository.types.ts
+|   |-- seed.ts
+|   `-- supabase-repositories.ts
+|-- types/
+|   |-- entities.ts
+|   `-- express.d.ts
+|-- app.ts
+`-- server.ts
 ```
 
 ## Current Scope
@@ -55,15 +70,23 @@ src/
 ## API Endpoints
 
 ```text
+POST   /api/auth/login
+POST   /api/auth/signup
 GET    /api/catalog-items
+GET    /api/catalog-items/:itemId
 POST   /api/inquiries
+GET    /api/vendors/:vendorId
+GET    /api/vendors/me
+PATCH  /api/vendors/me
 GET    /api/vendors/:vendorId/inquiries
+PATCH  /api/vendors/:vendorId/inquiries/:inquiryId/status
+GET    /api/vendors/:vendorId/catalog-items
 POST   /api/vendors/:vendorId/catalog-items
 PATCH  /api/vendors/:vendorId/catalog-items/:itemId
 DELETE /api/vendors/:vendorId/catalog-items/:itemId
 ```
 
-Vendor routes expect `x-vendor-id` to match the `:vendorId` route param. This is a lightweight placeholder for real vendor authentication.
+Protected vendor routes require a bearer token and enforce vendor ownership through the shared auth middleware.
 
 ## Run
 
@@ -80,7 +103,7 @@ http://localhost:4000
 
 ## Supabase Setup
 
-The backend now supports Supabase as its persistent database. If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the API uses Supabase-backed repositories. If they are missing, it falls back to the in-memory demo repositories.
+The backend supports Supabase-authenticated vendors plus PostgreSQL-backed persistence. If `DATABASE_URL` is set, the API uses the Postgres repositories. If it is missing, it falls back to the in-memory demo repositories. If `SUPABASE_URL` and a backend auth key are set, vendor login/signup and bearer-token auth are enabled.
 
 ### 1. Create the tables in Supabase
 
@@ -161,7 +184,7 @@ execute function public.set_updated_at();
 
 ### 2. Seed at least one vendor
 
-The current vendor routes still use the temporary `x-vendor-id` header, so you need a real vendor row to test vendor-side actions. Example:
+Example:
 
 ```sql
 insert into public.vendors (
@@ -191,6 +214,7 @@ Create `.env` in the backend root:
 ```text
 PORT=4000
 WEB_ORIGIN=http://localhost:5173
+DATABASE_URL=postgresql://postgres:password@db.project-ref.supabase.co:5432/postgres
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```

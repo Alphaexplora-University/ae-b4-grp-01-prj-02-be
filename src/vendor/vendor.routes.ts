@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import type { VendorController } from "../controllers/vendor.controller.js";
+import type { VendorController } from "./vendor.controller.js";
 
 export function vendorRoutes(
   vendorController: VendorController,

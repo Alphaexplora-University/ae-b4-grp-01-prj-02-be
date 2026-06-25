@@ -1,7 +1,7 @@
-import { NotFoundError } from "../middlewares/http-errors.js";
-import type { UpdateVendorProfileDto } from "../middlewares/validation-schemas.js";
 import type { VendorRepository } from "../repositories/repository.types.js";
+import { NotFoundError } from "../shared/utils/app-error.js";
 import type { Vendor } from "../types/entities.js";
+import type { UpdateVendorProfileDto } from "./vendor.validator.js";
 
 export class VendorService {
   constructor(private readonly vendors: VendorRepository) {}

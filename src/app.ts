@@ -2,16 +2,17 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import { authRoutes } from "./auth/auth.routes.js";
+import { catalogRoutes } from "./catalog/catalog.routes.js";
 import type { AppConfig } from "./config/app-config.js";
 import { buildDependencies } from "./config/dependencies.js";
-import { errorHandler } from "./middlewares/error-handler.js";
-import { catalogRoutes } from "./routes/catalog.routes.js";
-import { inquiryRoutes } from "./routes/inquiry.routes.js";
-import { vendorRoutes } from "./routes/vendor.routes.js";
+import { inquiryRoutes } from "./inquiry/inquiry.routes.js";
+import { errorHandler } from "./shared/middleware/error.middleware.js";
+import { vendorRoutes } from "./vendor/vendor.routes.js";
 
 export function createApp(config: AppConfig) {
   const app = express();
-  const { catalogController, inquiryController, vendorController, requireVendorAuth } = buildDependencies(config);
+  const { authController, catalogController, inquiryController, vendorController, requireVendorAuth } = buildDependencies(config);
 
   app.use(helmet());
   app.use(cors({ origin: config.webOrigin }));
@@ -22,6 +23,7 @@ export function createApp(config: AppConfig) {
     response.json({ status: "ok" });
   });
 
+  app.use("/api", authRoutes(authController));
   app.use("/api", vendorRoutes(vendorController, requireVendorAuth));
   app.use("/api", catalogRoutes(catalogController, requireVendorAuth));
   app.use("/api", inquiryRoutes(inquiryController, requireVendorAuth));

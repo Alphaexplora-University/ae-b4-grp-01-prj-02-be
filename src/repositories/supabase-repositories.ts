@@ -120,6 +120,34 @@ export class PostgresVendorRepository implements VendorRepository {
     return rows[0] ? mapVendor(rows[0]) : null;
   }
 
+  async create(input: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Promise<Vendor> {
+    const rows = await this.database<VendorRow[]>`
+      insert into vendors (
+        owner_user_id,
+        business_name,
+        description,
+        location,
+        contact_email,
+        contact_phone
+      ) values (
+        ${input.ownerUserId},
+        ${input.businessName},
+        ${input.description},
+        ${input.location},
+        ${input.contactEmail},
+        ${input.contactPhone ?? null}
+      )
+      returning *
+    `;
+
+    const [createdRow] = rows;
+    if (!createdRow) {
+      throw new Error("Database vendor creation returned no rows");
+    }
+
+    return mapVendor(createdRow);
+  }
+
   async update(
     id: string,
     input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,

@@ -24,6 +24,7 @@ export interface CatalogItemRepository {
 export interface VendorRepository {
   findById(id: string): Promise<Vendor | null>;
   findByOwnerUserId(ownerUserId: string): Promise<Vendor | null>;
+  create(input: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Promise<Vendor>;
   update(
     id: string,
     input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,

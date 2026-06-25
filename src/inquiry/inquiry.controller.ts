@@ -1,18 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
+import { requireRouteParam } from "../shared/utils/route-params.js";
+import type { InquiryService } from "./inquiry.service.js";
 import {
   submitInquirySchema,
   updateInquiryStatusSchema,
   vendorInquiryFiltersSchema,
-} from "../middlewares/validation-schemas.js";
-import type { InquiryService } from "../services/inquiry.service.js";
-
-function requireRouteParam(value: string | undefined, name: string): string {
-  if (!value) {
-    throw new Error(`Missing route param: ${name}`);
-  }
-
-  return value;
-}
+} from "./inquiry.validator.js";
 
 export class InquiryController {
   constructor(private readonly inquiryService: InquiryService) {}

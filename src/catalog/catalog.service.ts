@@ -1,7 +1,11 @@
-import type { CatalogItem } from "../types/entities.js";
-import { NotFoundError } from "../middlewares/http-errors.js";
 import type { CatalogItemRepository, VendorRepository } from "../repositories/repository.types.js";
-import type { CatalogItemFiltersDto, CreateCatalogItemDto, UpdateCatalogItemDto } from "../middlewares/validation-schemas.js";
+import { NotFoundError } from "../shared/utils/app-error.js";
+import type { CatalogItem } from "../types/entities.js";
+import type {
+  CatalogItemFiltersDto,
+  CreateCatalogItemDto,
+  UpdateCatalogItemDto,
+} from "./catalog.validator.js";
 
 export class CatalogService {
   constructor(
