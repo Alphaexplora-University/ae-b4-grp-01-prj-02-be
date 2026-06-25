@@ -8,17 +8,8 @@ export const catalogItemFiltersSchema = z.object({
   vendorId: z.string().uuid().optional(),
 });
 
-export const submitInquirySchema = z.object({
-  catalogItemId: z.string().uuid(),
-  customerName: z.string().trim().min(2).max(160),
-  customerEmail: z.string().trim().email().max(255),
-  customerPhone: z.string().trim().max(40).optional(),
-  eventType: z.string().trim().min(2).max(120),
-  eventDate: z.string().date().optional(),
-  message: z.string().trim().min(10).max(4000),
-});
-
 export const createCatalogItemSchema = z.object({
+  vendorId: z.string().uuid(),
   name: z.string().trim().min(2).max(180),
   category: z.string().trim().min(2).max(120),
   description: z.string().trim().min(10).max(4000),
@@ -31,6 +22,5 @@ export const createCatalogItemSchema = z.object({
 export const updateCatalogItemSchema = createCatalogItemSchema.partial();
 
 export type CatalogItemFiltersDto = z.infer<typeof catalogItemFiltersSchema>;
-export type SubmitInquiryDto = z.infer<typeof submitInquirySchema>;
 export type CreateCatalogItemDto = z.infer<typeof createCatalogItemSchema>;
 export type UpdateCatalogItemDto = z.infer<typeof updateCatalogItemSchema>;

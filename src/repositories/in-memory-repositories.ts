@@ -2,7 +2,9 @@ import type { CatalogItem, Inquiry, Vendor } from "../types/entities.js";
 import type {
   CatalogItemFilters,
   CatalogItemRepository,
+  CreateVendorInput,
   InquiryRepository,
+  VendorAuthRecord,
   VendorRepository,
 } from "./repository.types.js";
 import { createId, nowIso } from "./id.js";
@@ -10,9 +12,68 @@ import { catalogItemsSeed, vendorsSeed } from "./seed.js";
 
 export class MemoryVendorRepository implements VendorRepository {
   private readonly vendors = new Map(vendorsSeed.map((vendor) => [vendor.id, vendor]));
+  private readonly passwordHashes = new Map<string, string>();
+
+  async findMany(): Promise<Vendor[]> {
+    return [...this.vendors.values()].sort((left, right) => left.businessName.localeCompare(right.businessName));
+  }
 
   async findById(id: string): Promise<Vendor | null> {
     return this.vendors.get(id) ?? null;
+  }
+
+  async findAuthByEmail(email: string): Promise<VendorAuthRecord | null> {
+    const vendor = [...this.vendors.values()].find((entry) => entry.contactEmail.toLowerCase() === email.toLowerCase());
+    if (!vendor) {
+      return null;
+    }
+
+    const passwordHash = this.passwordHashes.get(vendor.id);
+    if (!passwordHash) {
+      return null;
+    }
+
+    return { vendor, passwordHash };
+  }
+
+  async create(input: CreateVendorInput): Promise<Vendor> {
+    const timestamp = nowIso();
+    const vendor: Vendor = {
+      ...input,
+      id: createId(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.vendors.set(vendor.id, vendor);
+    if (input.passwordHash) {
+      this.passwordHashes.set(vendor.id, input.passwordHash);
+    }
+    return vendor;
+  }
+
+  async update(
+    id: string,
+    input: Partial<Omit<Vendor, "id" | "ownerUserId" | "createdAt" | "updatedAt">>,
+  ): Promise<Vendor | null> {
+    const current = this.vendors.get(id);
+    if (!current) {
+      return null;
+    }
+
+    const updated: Vendor = {
+      ...current,
+      ...input,
+      updatedAt: nowIso(),
+    };
+
+    this.vendors.set(id, updated);
+    return updated;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    this.passwordHashes.delete(id);
+    return this.vendors.delete(id);
   }
 }
 
@@ -26,7 +87,7 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
     const availabilityTag = filters.availabilityTag?.toLowerCase();
 
     return [...this.items.values()]
-      .filter((item) => item.status === "active" || filters.vendorId === item.vendorId)
+      .filter((item) => item.status === "active" || (filters.includeInactive && filters.vendorId === item.vendorId))
       .filter((item) => !filters.vendorId || item.vendorId === filters.vendorId)
       .filter((item) => !category || item.category.toLowerCase() === category)
       .filter((item) => !location || item.location.toLowerCase().includes(location))
@@ -56,11 +117,10 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
 
   async update(
     id: string,
-    vendorId: string,
     input: Partial<Omit<CatalogItem, "id" | "vendorId" | "createdAt" | "updatedAt">>,
   ): Promise<CatalogItem | null> {
     const current = this.items.get(id);
-    if (!current || current.vendorId !== vendorId) {
+    if (!current) {
       return null;
     }
 
@@ -73,11 +133,7 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
     return updated;
   }
 
-  async delete(id: string, vendorId: string): Promise<boolean> {
-    const current = this.items.get(id);
-    if (!current || current.vendorId !== vendorId) {
-      return false;
-    }
+  async delete(id: string): Promise<boolean> {
     return this.items.delete(id);
   }
 }
@@ -98,9 +154,37 @@ export class MemoryInquiryRepository implements InquiryRepository {
     return inquiry;
   }
 
-  async findByVendorId(vendorId: string): Promise<Inquiry[]> {
+  async findMany(filters?: { vendorId?: string; status?: Inquiry["status"] }): Promise<Inquiry[]> {
     return [...this.inquiries.values()]
-      .filter((inquiry) => inquiry.vendorId === vendorId)
+      .filter((inquiry) => !filters?.vendorId || inquiry.vendorId === filters.vendorId)
+      .filter((inquiry) => !filters?.status || inquiry.status === filters.status)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  async findById(id: string): Promise<Inquiry | null> {
+    return this.inquiries.get(id) ?? null;
+  }
+
+  async update(
+    id: string,
+    input: Partial<Pick<Inquiry, "customerName" | "customerEmail" | "customerPhone" | "eventType" | "eventDate" | "message" | "status">>,
+  ): Promise<Inquiry | null> {
+    const current = this.inquiries.get(id);
+    if (!current) {
+      return null;
+    }
+
+    const updated: Inquiry = {
+      ...current,
+      ...input,
+      updatedAt: nowIso(),
+    };
+
+    this.inquiries.set(id, updated);
+    return updated;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.inquiries.delete(id);
   }
 }
