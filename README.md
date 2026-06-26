@@ -18,8 +18,11 @@ DELETE /api/vendors/:vendorId
 
 GET    /api/catalog-items
 POST   /api/catalog-items
+POST   /api/catalog-items/drafts
 GET    /api/catalog-items/:itemId
 PATCH  /api/catalog-items/:itemId
+POST   /api/catalog-items/:itemId/publish
+POST   /api/catalog-items/:itemId/archive
 DELETE /api/catalog-items/:itemId
 
 GET    /api/inquiries

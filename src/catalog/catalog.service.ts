@@ -1,6 +1,6 @@
 import type { CatalogItemRepository, VendorRepository } from "../repositories/repository.types.js";
 import { NotFoundError } from "../shared/utils/app-error.js";
-import type { CatalogItem } from "../types/entities.js";
+import type { CatalogItem, CatalogItemStatus } from "../types/entities.js";
 import type {
   CatalogItemFiltersDto,
   CreateCatalogItemDto,
@@ -44,6 +44,13 @@ export class CatalogService {
     });
   }
 
+  createDraftCatalogItem(input: Omit<CreateCatalogItemDto, "status">): Promise<CatalogItem> {
+    return this.createCatalogItem({
+      ...input,
+      status: "draft",
+    });
+  }
+
   async updateCatalogItem(itemId: string, input: UpdateCatalogItemDto): Promise<CatalogItem> {
     const updated = await this.catalogItems.update(itemId, input);
     if (!updated) {
@@ -57,5 +64,22 @@ export class CatalogService {
     if (!deleted) {
       throw new NotFoundError("Catalog item");
     }
+  }
+
+  async updateCatalogItemStatus(itemId: string, status: CatalogItemStatus): Promise<CatalogItem> {
+    const updated = await this.catalogItems.update(itemId, { status });
+    if (!updated) {
+      throw new NotFoundError("Catalog item");
+    }
+
+    return updated;
+  }
+
+  publishDraftCatalogItem(itemId: string): Promise<CatalogItem> {
+    return this.updateCatalogItemStatus(itemId, "active");
+  }
+
+  archiveCatalogItem(itemId: string): Promise<CatalogItem> {
+    return this.updateCatalogItemStatus(itemId, "archived");
   }
 }

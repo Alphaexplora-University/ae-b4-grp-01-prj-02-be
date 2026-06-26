@@ -230,7 +230,10 @@ export class PostgresCatalogItemRepository implements CatalogItemRepository {
       where.push(`vendor_id = $${values.length}`);
     }
 
-    if (!filters.includeInactive) {
+    if (filters.status) {
+      values.push(filters.status);
+      where.push(`status = $${values.length}`);
+    } else if (!filters.includeInactive) {
       values.push("active");
       where.push(`status = $${values.length}`);
     }

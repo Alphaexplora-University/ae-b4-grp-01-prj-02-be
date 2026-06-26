@@ -1,11 +1,14 @@
 import { z } from "zod";
 
+const catalogItemStatusSchema = z.enum(["active", "draft", "archived"]);
+
 export const catalogItemFiltersSchema = z.object({
   search: z.string().trim().optional(),
   category: z.string().trim().optional(),
   location: z.string().trim().optional(),
   availabilityTag: z.string().trim().optional(),
   vendorId: z.string().uuid().optional(),
+  status: catalogItemStatusSchema.optional(),
 });
 
 export const createCatalogItemSchema = z.object({
@@ -16,7 +19,7 @@ export const createCatalogItemSchema = z.object({
   priceFrom: z.number().nonnegative().optional(),
   location: z.string().trim().min(2).max(160),
   availabilityTags: z.array(z.string().trim().min(1).max(40)).default([]),
-  status: z.enum(["active", "draft", "archived"]).default("active"),
+  status: catalogItemStatusSchema.default("active"),
 });
 
 export const updateCatalogItemSchema = createCatalogItemSchema.partial();

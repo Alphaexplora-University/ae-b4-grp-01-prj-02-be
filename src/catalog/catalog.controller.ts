@@ -30,6 +30,16 @@ export class CatalogController {
     }
   };
 
+  createDraftCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = createCatalogItemSchema.omit({ status: true }).parse(request.body);
+      const item = await this.catalogService.createDraftCatalogItem(input);
+      response.status(201).json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getCatalogItemById = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const itemId = requireRouteParam(request.params.itemId, "itemId");
@@ -45,6 +55,26 @@ export class CatalogController {
       const input = updateCatalogItemSchema.parse(request.body);
       const itemId = requireRouteParam(request.params.itemId, "itemId");
       const item = await this.catalogService.updateCatalogItem(itemId, input);
+      response.json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  publishDraftCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const itemId = requireRouteParam(request.params.itemId, "itemId");
+      const item = await this.catalogService.publishDraftCatalogItem(itemId);
+      response.json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  archiveCatalogItem = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const itemId = requireRouteParam(request.params.itemId, "itemId");
+      const item = await this.catalogService.archiveCatalogItem(itemId);
       response.json({ data: item });
     } catch (error) {
       next(error);

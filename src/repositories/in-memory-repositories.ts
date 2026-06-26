@@ -85,9 +85,16 @@ export class MemoryCatalogItemRepository implements CatalogItemRepository {
     const category = filters.category?.toLowerCase();
     const location = filters.location?.toLowerCase();
     const availabilityTag = filters.availabilityTag?.toLowerCase();
+    const requestedStatus = filters.status;
 
     return [...this.items.values()]
-      .filter((item) => item.status === "active" || (filters.includeInactive && filters.vendorId === item.vendorId))
+      .filter((item) => {
+        if (requestedStatus) {
+          return item.status === requestedStatus;
+        }
+
+        return item.status === "active" || (filters.includeInactive && filters.vendorId === item.vendorId);
+      })
       .filter((item) => !filters.vendorId || item.vendorId === filters.vendorId)
       .filter((item) => !category || item.category.toLowerCase() === category)
       .filter((item) => !location || item.location.toLowerCase().includes(location))

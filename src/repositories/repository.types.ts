@@ -6,6 +6,7 @@ export interface CatalogItemFilters {
   location?: string;
   availabilityTag?: string;
   vendorId?: string;
+  status?: CatalogItem["status"];
   includeInactive?: boolean;
 }
 
